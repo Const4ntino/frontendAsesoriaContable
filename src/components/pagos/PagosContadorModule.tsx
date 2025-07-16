@@ -1,0 +1,501 @@
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FileCheck, DollarSign } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import PagosContadorTable from "./PagosContadorTable.tsx";
+import type { PagoResponse, ResumenPagos } from "./types";
+
+const PagosContadorModule: React.FC = () => {
+  // Estado para los pagos
+  const [pagos, setPagos] = useState<PagoResponse[]>([]);
+  // Estado para el filtro de estado
+  const [filtroEstado, setFiltroEstado] = useState<string>("todos");
+  // Estado para los filtros
+  const [mesFiltro, setMesFiltro] = useState<string>("todos");
+  const [ordenMontoFiltro, setOrdenMontoFiltro] = useState<string>("DESC");
+  const [medioPagoFiltro, setMedioPagoFiltro] = useState<string>("todos");
+  // Estado para el resumen
+  const [resumen, setResumen] = useState<ResumenPagos>({
+    totalPagos: 0,
+    montoPagosTotal: 0,
+    pagosPorValidar: 0,
+    montoPagosPorValidar: 0,
+  });
+  // Estado para carga y errores
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Función para cargar los pagos con los filtros aplicados
+  const cargarPagos = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Construir la URL con los parámetros de filtro
+      let url = "http://localhost:8099/api/v1/pagos/mis-clientes/pagos?";
+      
+      // Agregar los filtros a la URL si no son "todos"
+      if (mesFiltro !== "todos") {
+        url += `mes=${mesFiltro}&`;
+      }
+      
+      if (ordenMontoFiltro) {
+        url += `ordenMonto=${ordenMontoFiltro}&`;
+      }
+      
+      if (medioPagoFiltro !== "todos") {
+        url += `medioPago=${medioPagoFiltro}&`;
+      }
+      
+      // Eliminar el último & si existe
+      url = url.endsWith("&") ? url.slice(0, -1) : url;
+      
+      // Obtener el token del localStorage
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("No se encontró el token de autenticación");
+      }
+      
+      // Hacer la petición
+      const response = await fetch(url, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error("Error al cargar los pagos");
+      }
+      
+      const data = await response.json();
+      setPagos(data);
+      
+      // Calcular el resumen
+      const totalPagos = data.length;
+      const montoPagosTotal = data.reduce((acc: number, pago: PagoResponse) => acc + pago.montoPagado, 0);
+      const pagosPorValidar = data.filter((pago: PagoResponse) => pago.estado === "POR_VALIDAR").length;
+      const montoPagosPorValidar = data
+        .filter((pago: PagoResponse) => pago.estado === "POR_VALIDAR")
+        .reduce((acc: number, pago: PagoResponse) => acc + pago.montoPagado, 0);
+      
+      setResumen({
+        totalPagos,
+        montoPagosTotal,
+        pagosPorValidar,
+        montoPagosPorValidar,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Cargar los pagos cuando cambian los filtros
+  useEffect(() => {
+    cargarPagos();
+  }, [mesFiltro, ordenMontoFiltro, medioPagoFiltro]);
+
+  // Filtrar pagos por estado
+  const pagosFiltrados = filtroEstado === "todos" 
+    ? pagos 
+    : pagos.filter(pago => {
+        if (filtroEstado === "por_validar") return pago.estado === "POR_VALIDAR";
+        if (filtroEstado === "validados") return pago.estado === "VALIDADO";
+        if (filtroEstado === "rechazados") return pago.estado === "RECHAZADO";
+        return true;
+      });
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold">Pagos de Clientes</h1>
+      
+      {/* Tarjetas de resumen */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total de Pagos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="text-2xl font-bold">{resumen.totalPagos}</div>
+              <FileCheck className="h-6 w-6 text-primary" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Monto Total
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="text-2xl font-bold">S/ {resumen.montoPagosTotal.toFixed(2)}</div>
+              <DollarSign className="h-6 w-6 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Pagos por Validar
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="text-2xl font-bold">{resumen.pagosPorValidar}</div>
+              <FileCheck className="h-6 w-6 text-amber-500" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Monto por Validar
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="text-2xl font-bold">S/ {resumen.montoPagosPorValidar.toFixed(2)}</div>
+              <DollarSign className="h-6 w-6 text-amber-500" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      {/* Pestañas para filtrar por estado */}
+      <Tabs defaultValue="todos" onValueChange={setFiltroEstado}>
+        <TabsList className="grid grid-cols-4 w-full max-w-md">
+          <TabsTrigger value="todos">Todos</TabsTrigger>
+          <TabsTrigger value="por_validar">Por Validar</TabsTrigger>
+          <TabsTrigger value="validados">Validados</TabsTrigger>
+          <TabsTrigger value="rechazados">Rechazados</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="todos" className="mt-4">
+          <div className="space-y-4">
+            {/* Filtros */}
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="w-full md:w-[180px]">
+                <Select
+                  value={mesFiltro}
+                  onValueChange={setMesFiltro}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por mes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los meses</SelectItem>
+                    <SelectItem value="1">Enero</SelectItem>
+                    <SelectItem value="2">Febrero</SelectItem>
+                    <SelectItem value="3">Marzo</SelectItem>
+                    <SelectItem value="4">Abril</SelectItem>
+                    <SelectItem value="5">Mayo</SelectItem>
+                    <SelectItem value="6">Junio</SelectItem>
+                    <SelectItem value="7">Julio</SelectItem>
+                    <SelectItem value="8">Agosto</SelectItem>
+                    <SelectItem value="9">Septiembre</SelectItem>
+                    <SelectItem value="10">Octubre</SelectItem>
+                    <SelectItem value="11">Noviembre</SelectItem>
+                    <SelectItem value="12">Diciembre</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="w-full md:w-[180px]">
+                <Select
+                  value={ordenMontoFiltro}
+                  onValueChange={setOrdenMontoFiltro}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Ordenar por monto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DESC">Mayor a menor</SelectItem>
+                    <SelectItem value="ASC">Menor a mayor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="w-full md:w-[180px]">
+                <Select
+                  value={medioPagoFiltro}
+                  onValueChange={setMedioPagoFiltro}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Medio de pago" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                    <SelectItem value="INTERBANK">Interbank</SelectItem>
+                    <SelectItem value="BCP">BCP</SelectItem>
+                    <SelectItem value="YAPE">Yape</SelectItem>
+                    <SelectItem value="NPS">NPS</SelectItem>
+                    <SelectItem value="BANCO">Banco</SelectItem>
+                    <SelectItem value="APP">App</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            {/* Tabla de pagos */}
+            <PagosContadorTable 
+              pagos={pagosFiltrados} 
+              loading={loading} 
+              error={error}
+              onConfirmarPago={cargarPagos}
+            />
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="por_validar" className="mt-4">
+          <div className="space-y-4">
+            {/* Filtros */}
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="w-full md:w-[180px]">
+                <Select
+                  value={mesFiltro}
+                  onValueChange={setMesFiltro}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por mes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los meses</SelectItem>
+                    <SelectItem value="1">Enero</SelectItem>
+                    <SelectItem value="2">Febrero</SelectItem>
+                    <SelectItem value="3">Marzo</SelectItem>
+                    <SelectItem value="4">Abril</SelectItem>
+                    <SelectItem value="5">Mayo</SelectItem>
+                    <SelectItem value="6">Junio</SelectItem>
+                    <SelectItem value="7">Julio</SelectItem>
+                    <SelectItem value="8">Agosto</SelectItem>
+                    <SelectItem value="9">Septiembre</SelectItem>
+                    <SelectItem value="10">Octubre</SelectItem>
+                    <SelectItem value="11">Noviembre</SelectItem>
+                    <SelectItem value="12">Diciembre</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="w-full md:w-[180px]">
+                <Select
+                  value={ordenMontoFiltro}
+                  onValueChange={setOrdenMontoFiltro}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Ordenar por monto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DESC">Mayor a menor</SelectItem>
+                    <SelectItem value="ASC">Menor a mayor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="w-full md:w-[180px]">
+                <Select
+                  value={medioPagoFiltro}
+                  onValueChange={setMedioPagoFiltro}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Medio de pago" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                    <SelectItem value="INTERBANK">Interbank</SelectItem>
+                    <SelectItem value="BCP">BCP</SelectItem>
+                    <SelectItem value="YAPE">Yape</SelectItem>
+                    <SelectItem value="NPS">NPS</SelectItem>
+                    <SelectItem value="BANCO">Banco</SelectItem>
+                    <SelectItem value="APP">App</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            {/* Tabla de pagos */}
+            <PagosContadorTable 
+              pagos={pagosFiltrados} 
+              loading={loading} 
+              error={error}
+              onConfirmarPago={cargarPagos}
+            />
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="validados" className="mt-4">
+          <div className="space-y-4">
+            {/* Filtros */}
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="w-full md:w-[180px]">
+                <Select
+                  value={mesFiltro}
+                  onValueChange={setMesFiltro}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por mes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los meses</SelectItem>
+                    <SelectItem value="1">Enero</SelectItem>
+                    <SelectItem value="2">Febrero</SelectItem>
+                    <SelectItem value="3">Marzo</SelectItem>
+                    <SelectItem value="4">Abril</SelectItem>
+                    <SelectItem value="5">Mayo</SelectItem>
+                    <SelectItem value="6">Junio</SelectItem>
+                    <SelectItem value="7">Julio</SelectItem>
+                    <SelectItem value="8">Agosto</SelectItem>
+                    <SelectItem value="9">Septiembre</SelectItem>
+                    <SelectItem value="10">Octubre</SelectItem>
+                    <SelectItem value="11">Noviembre</SelectItem>
+                    <SelectItem value="12">Diciembre</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="w-full md:w-[180px]">
+                <Select
+                  value={ordenMontoFiltro}
+                  onValueChange={setOrdenMontoFiltro}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Ordenar por monto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DESC">Mayor a menor</SelectItem>
+                    <SelectItem value="ASC">Menor a mayor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="w-full md:w-[180px]">
+                <Select
+                  value={medioPagoFiltro}
+                  onValueChange={setMedioPagoFiltro}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Medio de pago" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                    <SelectItem value="INTERBANK">Interbank</SelectItem>
+                    <SelectItem value="BCP">BCP</SelectItem>
+                    <SelectItem value="YAPE">Yape</SelectItem>
+                    <SelectItem value="NPS">NPS</SelectItem>
+                    <SelectItem value="BANCO">Banco</SelectItem>
+                    <SelectItem value="APP">App</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            {/* Tabla de pagos */}
+            <PagosContadorTable 
+              pagos={pagosFiltrados} 
+              loading={loading} 
+              error={error}
+              onConfirmarPago={cargarPagos}
+            />
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="rechazados" className="mt-4">
+          <div className="space-y-4">
+            {/* Filtros */}
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="w-full md:w-[180px]">
+                <Select
+                  value={mesFiltro}
+                  onValueChange={setMesFiltro}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por mes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los meses</SelectItem>
+                    <SelectItem value="1">Enero</SelectItem>
+                    <SelectItem value="2">Febrero</SelectItem>
+                    <SelectItem value="3">Marzo</SelectItem>
+                    <SelectItem value="4">Abril</SelectItem>
+                    <SelectItem value="5">Mayo</SelectItem>
+                    <SelectItem value="6">Junio</SelectItem>
+                    <SelectItem value="7">Julio</SelectItem>
+                    <SelectItem value="8">Agosto</SelectItem>
+                    <SelectItem value="9">Septiembre</SelectItem>
+                    <SelectItem value="10">Octubre</SelectItem>
+                    <SelectItem value="11">Noviembre</SelectItem>
+                    <SelectItem value="12">Diciembre</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="w-full md:w-[180px]">
+                <Select
+                  value={ordenMontoFiltro}
+                  onValueChange={setOrdenMontoFiltro}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Ordenar por monto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DESC">Mayor a menor</SelectItem>
+                    <SelectItem value="ASC">Menor a mayor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="w-full md:w-[180px]">
+                <Select
+                  value={medioPagoFiltro}
+                  onValueChange={setMedioPagoFiltro}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Medio de pago" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                    <SelectItem value="INTERBANK">Interbank</SelectItem>
+                    <SelectItem value="BCP">BCP</SelectItem>
+                    <SelectItem value="YAPE">Yape</SelectItem>
+                    <SelectItem value="NPS">NPS</SelectItem>
+                    <SelectItem value="BANCO">Banco</SelectItem>
+                    <SelectItem value="APP">App</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            {/* Tabla de pagos */}
+            <PagosContadorTable 
+              pagos={pagosFiltrados} 
+              loading={loading} 
+              error={error}
+              onConfirmarPago={cargarPagos}
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+export default PagosContadorModule;
