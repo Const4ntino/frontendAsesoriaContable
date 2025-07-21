@@ -14,14 +14,7 @@ import MisClientesModule from "./mis-clientes/MisClientesModule";
 import PagosModule from "./pagos/PagosModule";
 import PagosContadorModule from "./pagos/PagosContadorModule";
 import ObligacionesNRUSModule from "./obligaciones-nrus/ObligacionesNRUSModule";
-
-interface AuthInfoProps {
-    token: string;
-    username: string;
-    rol: string;
-    onLogout: () => void;
-}
-
+import RevisionModule from "./revision/RevisionModule";
 
 interface AuthInfoProps {
     token: string;
@@ -57,6 +50,9 @@ const AuthInfo: React.FC<AuthInfoProps> = ({ username, rol, onLogout }) => {
                   )}
                   {rol.toUpperCase() === "ADMINISTRADOR" && modulo === "asignaciones" && (
                     <AsignacionesTable />
+                  )}
+                  {rol.toUpperCase() === "ADMINISTRADOR" && modulo === "revision" && (
+                    <RevisionModule />
                   )}
                   {rol.toUpperCase() === "CONTADOR" && modulo === "mis-clientes" && (
                     <MisClientesModule />

@@ -31,6 +31,7 @@ const getSidebarOptions = (rol: string, regimen?: string) => {
       { label: "Clientes", key: "clientes", icon: <User className="w-5 h-5" /> },
       { label: "Contadores", key: "contadores", icon: <Briefcase className="w-5 h-5" /> },
       { label: "Asignaciones", key: "asignaciones", icon: <ClipboardList className="w-5 h-5" /> },
+      { label: "Revisión", key: "revision", icon: <FileCheck className="w-5 h-5" /> },
     ],
     CONTADOR: [
       { label: "Mis Clientes", key: "mis-clientes", icon: <Users className="w-5 h-5" /> },
