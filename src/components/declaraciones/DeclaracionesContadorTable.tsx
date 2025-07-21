@@ -532,7 +532,7 @@ const DeclaracionesContadorTable: React.FC<DeclaracionesContadorTableProps> = ({
                         icon={<Upload className="h-4 w-4" />}
                         label="Subir constancia de declaración"
                         onClick={() => handleSubirArchivo(declaracion.id, 'DECLARACION')}
-                        disabled={declaracion.estado === "DECLARADO"}
+                        disabled={declaracion.estado === "DECLARADO" || declaracion.estado === "LISTO"}
                       />
                     </div>
                   </TableCell>
@@ -551,7 +551,7 @@ const DeclaracionesContadorTable: React.FC<DeclaracionesContadorTableProps> = ({
                         icon={<Upload className="h-4 w-4" />}
                         label="Subir constancia SUNAT"
                         onClick={() => handleSubirArchivo(declaracion.id, 'SUNAT')}
-                        disabled={declaracion.estado === "DECLARADO"}
+                        disabled={declaracion.estado === "DECLARADO" || declaracion.estado === "LISTO"}
                       />
                     </div>
                   </TableCell>
@@ -561,14 +561,14 @@ const DeclaracionesContadorTable: React.FC<DeclaracionesContadorTableProps> = ({
                         icon={<FilePlus className="h-4 w-4" />}
                         label="Generar documento"
                         onClick={() => handleGenerarDocumento(declaracion)}
-                        disabled={declaracion.estado === "COMPLETADA" || declaracion.estado === "DECLARADO"}
+                        disabled={declaracion.estado === "COMPLETADA" || declaracion.estado === "DECLARADO" || declaracion.estado === "LISTO"}
                       />
                       <ActionButton
                         icon={<Calendar className="h-4 w-4" />}
                         label={!declaracion.urlConstanciaSunat ? "Subir constancia SUNAT primero" : "Generar obligación"}
                         onClick={() => handleGenerarObligacion(declaracion)}
                         variant="ghost"
-                        disabled={declaracion.estado === "DECLARADO" || !declaracion.urlConstanciaSunat}
+                        disabled={declaracion.estado === "DECLARADO" || declaracion.estado === "LISTO" || !declaracion.urlConstanciaSunat}
                       />
                     </div>
                   </TableCell>
