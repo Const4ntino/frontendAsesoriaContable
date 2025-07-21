@@ -122,7 +122,7 @@ const ContadorModal: React.FC<ContadorModalProps> = ({ open, onClose, contador, 
         idUsuario: form.usuario?.id ?? null,
       };
 
-      let url = "http://localhost:8099/api/contadores";
+      let url = "http://localhost:8099/api/v1/contadores";
       let method: "POST" | "PUT" = "POST";
       if (isEdit && contador && contador.id) {
         url += `/${contador.id}`;
