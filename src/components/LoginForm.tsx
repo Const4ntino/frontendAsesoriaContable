@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import AuthInfo from "./AuthInfo";
+import { Button } from "./ui/button";
 
 interface AuthResponse {
     token: string;
@@ -112,8 +113,19 @@ const LoginForm: React.FC = () => {
                         {loading ? "Iniciando..." : "Iniciar Sesión"}
                     </button>
                 </form>
-                <div className="text-center mt-4">
-                    <a href="#" className="text-sm text-blue-700 hover:underline">¿Olvidó su contraseña?</a>
+                <div className="flex flex-col space-y-3 mt-4">
+                    <a href="#" className="text-sm text-blue-700 hover:underline text-center">¿Olvidó su contraseña?</a>
+                    <Button 
+                        type="button"
+                        variant="outline"
+                        className="border-blue-800 text-blue-800 hover:bg-blue-50"
+                        onClick={() => window.location.href = "/"}
+                    >
+                        <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Regresar a la página principal
+                    </Button>
                 </div>
             </div>
             <div className="absolute bottom-4 left-0 w-full text-center text-xs text-gray-400">
