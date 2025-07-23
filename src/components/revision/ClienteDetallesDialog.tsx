@@ -602,60 +602,64 @@ const ClienteDetallesDialog: React.FC<ClienteDetallesDialogProps> = ({
                   {/* Filtro por rango de fechas */}
                   <div className="space-y-2">
                     <Label>Rango de fechas</Label>
-                    <div className="flex gap-2">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !fechaInicio && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {fechaInicio ? format(fechaInicio, "dd/MM/yyyy", { locale: es }) : "Fecha inicio"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={fechaInicio}
-                            onSelect={setFechaInicio}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !fechaFin && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {fechaFin ? format(fechaFin, "dd/MM/yyyy", { locale: es }) : "Fecha fin"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={fechaFin}
-                            onSelect={setFechaFin}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+                    <div className="flex flex-wrap gap-2">
+                      <div className="w-auto">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "justify-start text-left font-normal",
+                                !fechaInicio && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {fechaInicio ? format(fechaInicio, "dd/MM/yyyy", { locale: es }) : "Fecha inicio"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 z-50">
+                            <Calendar
+                              mode="single"
+                              selected={fechaInicio}
+                              onSelect={setFechaInicio}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="w-auto">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "justify-start text-left font-normal",
+                                !fechaFin && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {fechaFin ? format(fechaFin, "dd/MM/yyyy", { locale: es }) : "Fecha fin"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 z-50">
+                            <Calendar
+                              mode="single"
+                              selected={fechaFin}
+                              onSelect={setFechaFin}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Filtro por periodo (mes y año) */}
-                  <div className="space-y-2">
-                    <Label>Periodo</Label>
-                    <div className="flex gap-2">
+                  <div className="flex gap-4">
+                    {/* Filtro por periodo (mes) */}
+                    <div className="space-y-2 flex-1">
+                      <Label>Mes</Label>
                       <Select value={mes} onValueChange={setMes}>
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger>
                           <SelectValue placeholder="Mes" />
                         </SelectTrigger>
                         <SelectContent>
@@ -667,8 +671,13 @@ const ClienteDetallesDialog: React.FC<ClienteDetallesDialogProps> = ({
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    {/* Filtro por periodo (año) */}
+                    <div className="space-y-2 flex-1">
+                      <Label>Año</Label>
                       <Select value={anio} onValueChange={setAnio}>
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger>
                           <SelectValue placeholder="Año" />
                         </SelectTrigger>
                         <SelectContent>
@@ -782,10 +791,16 @@ const ClienteDetallesDialog: React.FC<ClienteDetallesDialogProps> = ({
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            S/ {ingreso.monto.toFixed(2)}
+                            S/{new Intl.NumberFormat("es-PE", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            }).format(ingreso.monto)}
                           </TableCell>
                           <TableCell className="text-right">
-                            S/ {ingreso.montoIgv.toFixed(2)}
+                            S/{new Intl.NumberFormat("es-PE", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            }).format(ingreso.montoIgv)}
                           </TableCell>
                         </TableRow>
                       ))
@@ -848,60 +863,64 @@ const ClienteDetallesDialog: React.FC<ClienteDetallesDialogProps> = ({
                   {/* Filtro por rango de fechas */}
                   <div className="space-y-2">
                     <Label>Rango de fechas</Label>
-                    <div className="flex gap-2">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !fechaInicioEgresos && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {fechaInicioEgresos ? format(fechaInicioEgresos, "dd/MM/yyyy", { locale: es }) : "Fecha inicio"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={fechaInicioEgresos}
-                            onSelect={setFechaInicioEgresos}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !fechaFinEgresos && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {fechaFinEgresos ? format(fechaFinEgresos, "dd/MM/yyyy", { locale: es }) : "Fecha fin"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={fechaFinEgresos}
-                            onSelect={setFechaFinEgresos}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+                    <div className="flex flex-wrap gap-2">
+                      <div className="w-auto">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "justify-start text-left font-normal",
+                                !fechaInicioEgresos && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {fechaInicioEgresos ? format(fechaInicioEgresos, "dd/MM/yyyy", { locale: es }) : "Fecha inicio"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 z-50">
+                            <Calendar
+                              mode="single"
+                              selected={fechaInicioEgresos}
+                              onSelect={setFechaInicioEgresos}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="w-auto">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "justify-start text-left font-normal",
+                                !fechaFinEgresos && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {fechaFinEgresos ? format(fechaFinEgresos, "dd/MM/yyyy", { locale: es }) : "Fecha fin"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 z-50">
+                            <Calendar
+                              mode="single"
+                              selected={fechaFinEgresos}
+                              onSelect={setFechaFinEgresos}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Filtro por periodo (mes y año) */}
-                  <div className="space-y-2">
-                    <Label>Periodo</Label>
-                    <div className="flex gap-2">
+                  <div className="flex gap-4">
+                    {/* Filtro por periodo (mes) */}
+                    <div className="space-y-2 flex-1">
+                      <Label>Mes</Label>
                       <Select value={mesEgresos} onValueChange={setMesEgresos}>
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger>
                           <SelectValue placeholder="Mes" />
                         </SelectTrigger>
                         <SelectContent>
@@ -913,8 +932,13 @@ const ClienteDetallesDialog: React.FC<ClienteDetallesDialogProps> = ({
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    {/* Filtro por periodo (año) */}
+                    <div className="space-y-2 flex-1">
+                      <Label>Año</Label>
                       <Select value={anioEgresos} onValueChange={setAnioEgresos}>
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger>
                           <SelectValue placeholder="Año" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1033,10 +1057,16 @@ const ClienteDetallesDialog: React.FC<ClienteDetallesDialogProps> = ({
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            S/ {egreso.monto.toFixed(2)}
+                            S/{new Intl.NumberFormat("es-PE", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            }).format(egreso.monto)}
                           </TableCell>
                           <TableCell className="text-right">
-                            S/ {egreso.montoIgv.toFixed(2)}
+                            S/{new Intl.NumberFormat("es-PE", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            }).format(egreso.montoIgv)}
                           </TableCell>
                         </TableRow>
                       ))

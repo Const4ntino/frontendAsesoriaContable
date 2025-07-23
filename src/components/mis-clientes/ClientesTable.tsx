@@ -89,11 +89,14 @@ const ClientesTable: React.FC<ClientesTableProps> = ({ clientes, tipoCliente }) 
   };
   // Función para formatear montos en soles
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("es-PE", {
-      style: "currency",
-      currency: "PEN",
+    // Formatear con separador de miles y dos decimales
+    const formattedNumber = new Intl.NumberFormat("es-PE", {
       minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(amount);
+    
+    // Agregar el prefijo S/ manualmente
+    return `S/${formattedNumber}`;
   };
 
   // Función para obtener color de badge según régimen
