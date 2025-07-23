@@ -4,7 +4,7 @@ import { Button } from "../ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
-import { AlertCircle, BarChart2, PieChart, TrendingUp, RefreshCw } from "lucide-react";
+import { AlertCircle, BarChart2, PieChart, TrendingUp, RefreshCw, FileText } from "lucide-react";
 // Importamos los componentes desde el archivo index.ts
 import { ResumenFinanciero, DistribucionTributaria, HistorialDeclaraciones, EstadoObligaciones } from "./index";
 
@@ -86,6 +86,7 @@ const ReportesModule: React.FC = () => {
   // El tipo de reporte siempre es COMPLETO
   const [tipoReporte] = useState<string>("COMPLETO");
   const [activeTab, setActiveTab] = useState<string>("resumen");
+  const [downloadingPdf, setDownloadingPdf] = useState<boolean>(false);
 
   const fetchReporte = async () => {
     setLoading(true);
@@ -136,6 +137,66 @@ const ReportesModule: React.FC = () => {
     // El tipo de reporte siempre es COMPLETO
   };
 
+  const handleDescargarPdf = async () => {
+    setDownloadingPdf(true);
+    setError(null);
+    
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setError("No se encontró token de autenticación");
+        setDownloadingPdf(false);
+        return;
+      }
+
+      const periodo = `${anio}-${mes}`;
+      const url = `http://localhost:8099/api/v1/reportes/cliente/metricas/pdf?periodo=${periodo}&tipoReporte=${tipoReporte}`;
+      
+      const response = await fetch(url, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
+        method: "GET"
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error al descargar el reporte PDF: ${response.statusText}`);
+      }
+
+      // Obtener el blob del PDF
+      const blob = await response.blob();
+      
+      // Crear URL para el blob
+      const downloadUrl = window.URL.createObjectURL(blob);
+      
+      // Crear un elemento <a> temporal para descargar el archivo
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      
+      // Obtener el nombre del archivo de las cabeceras si está disponible
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'reporte-cliente.pdf';
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/i);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      link.download = filename;
+      link.click();
+      
+      // Limpiar
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al descargar el PDF");
+      console.error("Error al descargar el PDF:", err);
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   const renderAnios = () => {
     const currentYear = new Date().getFullYear();
     const years = [];
@@ -180,8 +241,18 @@ const ReportesModule: React.FC = () => {
           <Button 
             onClick={fetchReporte}
             className="flex items-center gap-1"
+            disabled={loading}
           >
-            Generar reporte
+            {loading ? "Cargando..." : "Generar reporte"}
+          </Button>
+          <Button 
+            variant="outline"
+            className="flex items-center gap-1 bg-white text-red-600 border-red-600 hover:bg-red-50"
+            onClick={handleDescargarPdf}
+            disabled={downloadingPdf || !reporte}
+          >
+            <FileText className="h-4 w-4" />
+            {downloadingPdf ? "Descargando..." : "Descargar Reporte (PDF)"}
           </Button>
         </div>
       </div>
