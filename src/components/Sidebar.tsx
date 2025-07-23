@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { LogOut, Users, User, Briefcase, DollarSign, ClipboardList, FileCheck, FileText, Calendar } from "lucide-react";
+import { LogOut, Users, User, Briefcase, DollarSign, ClipboardList, FileCheck, FileText, Calendar, History, Bell, BarChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -32,12 +32,14 @@ const getSidebarOptions = (rol: string, regimen?: string) => {
       { label: "Contadores", key: "contadores", icon: <Briefcase className="w-5 h-5" /> },
       { label: "Asignaciones", key: "asignaciones", icon: <ClipboardList className="w-5 h-5" /> },
       { label: "Revisión", key: "revision", icon: <FileCheck className="w-5 h-5" /> },
+      { label: "Bitácora", key: "bitacora", icon: <History className="w-5 h-5" /> },
     ],
     CONTADOR: [
+      { label: "Alertas", key: "alertas-contador", icon: <Bell className="w-5 h-5" /> },
       { label: "Mis Clientes", key: "mis-clientes", icon: <Users className="w-5 h-5" /> },
       { label: "Declaraciones", key: "declaraciones", icon: <FileText className="w-5 h-5" /> },
       { label: "Obligaciones", key: "obligaciones", icon: <Calendar className="w-5 h-5" /> },
-      { label: "Pagos", key: "pagos", icon: <FileCheck className="w-5 h-5" /> },
+      { label: "Pagos", key: "pagos", icon: <DollarSign className="w-5 h-5" /> }
     ],
     CLIENTE: [
       { label: "Ingresos", key: "ingresos", icon: <DollarSign className="w-5 h-5" /> },
@@ -54,8 +56,10 @@ const getSidebarOptions = (rol: string, regimen?: string) => {
   // Si es cliente y no es NRUS, agregar módulos adicionales
   else if (rol.toUpperCase() === 'CLIENTE' && regimen?.toUpperCase() !== 'NRUS') {
     baseOptions.CLIENTE.push(
+      { label: "Alertas", key: "alertas", icon: <Bell className="w-5 h-5" /> },
       { label: "Pagos", key: "pagos", icon: <FileCheck className="w-5 h-5" /> },
-      { label: "Obligaciones", key: "obligaciones", icon: <Calendar className="w-5 h-5" /> }
+      { label: "Obligaciones", key: "obligaciones", icon: <Calendar className="w-5 h-5" /> },
+      { label: "Reportes", key: "reportes", icon: <BarChart className="w-5 h-5" /> }
     );
     
     // Si el cliente puede ver declaraciones (RER, RG, RMT), agregar el módulo

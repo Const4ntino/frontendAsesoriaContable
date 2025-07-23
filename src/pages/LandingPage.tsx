@@ -62,7 +62,7 @@ const LandingPage: React.FC = () => {
               <Button
                 onClick={() => document.getElementById("servicios")?.scrollIntoView({ behavior: "smooth" })}
                 variant="outline"
-                className="border-white text-white hover:bg-blue-700"
+                className="border-white text-black hover:bg-blue-700 hover:text-white"
               >
                 Nuestros Servicios
               </Button>

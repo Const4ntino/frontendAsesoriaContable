@@ -15,6 +15,10 @@ import PagosModule from "./pagos/PagosModule";
 import PagosContadorModule from "./pagos/PagosContadorModule";
 import ObligacionesNRUSModule from "./obligaciones-nrus/ObligacionesNRUSModule";
 import RevisionModule from "./revision/RevisionModule";
+import BitacoraModule from "./bitacora/BitacoraModule";
+import AlertasModule from "./alertas/AlertasModule";
+import AlertasContadorModule from "./alertas-contador/AlertasContadorModule";
+import { ReportesModule } from "./reportes";
 
 interface AuthInfoProps {
     token: string;
@@ -54,6 +58,9 @@ const AuthInfo: React.FC<AuthInfoProps> = ({ username, rol, onLogout }) => {
                   {rol.toUpperCase() === "ADMINISTRADOR" && modulo === "revision" && (
                     <RevisionModule />
                   )}
+                  {rol.toUpperCase() === "ADMINISTRADOR" && modulo === "bitacora" && (
+                    <BitacoraModule />
+                  )}
                   {rol.toUpperCase() === "CONTADOR" && modulo === "mis-clientes" && (
                     <MisClientesModule />
                   )}
@@ -65,6 +72,9 @@ const AuthInfo: React.FC<AuthInfoProps> = ({ username, rol, onLogout }) => {
                   )}
                   {rol.toUpperCase() === "CONTADOR" && modulo === "pagos" && (
                     <PagosContadorModule />
+                  )}
+                  {rol.toUpperCase() === "CONTADOR" && modulo === "alertas-contador" && (
+                    <AlertasContadorModule />
                   )}
                   {rol.toUpperCase() === "CLIENTE" && modulo === "ingresos" && (
                     <IngresosModule />
@@ -83,6 +93,12 @@ const AuthInfo: React.FC<AuthInfoProps> = ({ username, rol, onLogout }) => {
                   )}
                   {rol.toUpperCase() === "CLIENTE" && modulo === "obligaciones-nrus" && (
                     <ObligacionesNRUSModule />
+                  )}
+                  {rol.toUpperCase() === "CLIENTE" && modulo === "alertas" && (
+                    <AlertasModule />
+                  )}
+                  {rol.toUpperCase() === "CLIENTE" && modulo === "reportes" && (
+                    <ReportesModule />
                   )}
                 </div>
             </main>

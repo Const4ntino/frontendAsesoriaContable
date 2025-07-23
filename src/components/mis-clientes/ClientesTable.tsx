@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye } from "lucide-react";
+import { Eye, DollarSign } from "lucide-react";
 import type { ClienteConMetricas } from "@/types/cliente";
 import { 
   Tooltip,
@@ -18,6 +18,7 @@ import {
   TooltipTrigger, 
 } from "@/components/ui/tooltip";
 import ClienteDetalleDialog from "./ClienteDetalleDialog";
+import ClienteDetallesDialog from "../revision/ClienteDetallesDialog";
 
 interface ClientesTableProps {
   clientes: ClienteConMetricas[];
@@ -28,6 +29,8 @@ const ClientesTable: React.FC<ClientesTableProps> = ({ clientes, tipoCliente }) 
   const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteConMetricas | null>(null);
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [clienteMetricas, setClienteMetricas] = useState<any>(null);
+  const [clienteDetallesSeleccionado, setClienteDetallesSeleccionado] = useState<any>(null);
+  const [detallesDialogoAbierto, setDetallesDialogoAbierto] = useState(false);
 
   const abrirDialogoDetalles = async (cliente: ClienteConMetricas) => {
     setClienteSeleccionado(cliente);
@@ -59,6 +62,30 @@ const ClientesTable: React.FC<ClientesTableProps> = ({ clientes, tipoCliente }) 
 
   const cerrarDialogoDetalles = () => {
     setDialogoAbierto(false);
+  };
+
+  const abrirDetallesIngresos = (cliente: ClienteConMetricas) => {
+    // Convertir el cliente al formato esperado por ClienteDetallesDialog
+    const clienteFormateado = {
+      id: cliente.cliente.id,
+      nombres: cliente.cliente.nombres,
+      apellidos: cliente.cliente.apellidos,
+      rucDni: cliente.cliente.rucDni,
+      email: cliente.cliente.email,
+      telefono: cliente.cliente.telefono,
+      tipoRuc: cliente.cliente.tipoRuc,
+      regimen: cliente.cliente.regimen,
+      tipoCliente: cliente.cliente.tipoCliente,
+      usuario: cliente.cliente.usuario,
+      contador: cliente.cliente.contador
+    };
+    
+    setClienteDetallesSeleccionado(clienteFormateado);
+    setDetallesDialogoAbierto(true);
+  };
+  
+  const cerrarDetallesIngresos = () => {
+    setDetallesDialogoAbierto(false);
   };
   // Función para formatear montos en soles
   const formatCurrency = (amount: number) => {
@@ -143,22 +170,41 @@ const ClientesTable: React.FC<ClientesTableProps> = ({ clientes, tipoCliente }) 
                   {formatCurrency(cliente.utilidadMesActual)}
                 </TableCell>
                 <TableCell className="text-right">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => abrirDialogoDetalles(cliente)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Ver detalles</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <div className="flex justify-end space-x-1">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => abrirDialogoDetalles(cliente)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Ver detalles</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => abrirDetallesIngresos(cliente)}
+                          >
+                            <DollarSign className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Ver ingresos y egresos</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -172,6 +218,13 @@ const ClientesTable: React.FC<ClientesTableProps> = ({ clientes, tipoCliente }) 
         cliente={clienteSeleccionado}
         tipoCliente={tipoCliente}
         clienteMetricas={clienteMetricas}
+      />
+      
+      {/* Diálogo de ingresos y egresos */}
+      <ClienteDetallesDialog
+        isOpen={detallesDialogoAbierto}
+        onClose={cerrarDetallesIngresos}
+        cliente={clienteDetallesSeleccionado}
       />
     </div>
   );

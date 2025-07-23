@@ -1,8 +1,19 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import EgresosTable from "./EgresosTable";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BarChart, DollarSign, Scale, PieChart, TrendingUp, TrendingDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { BarChart, DollarSign, Scale, PieChart, TrendingUp, TrendingDown, Download } from "lucide-react";
+
+// Importaciones para PDF y gráficos
+import { jsPDF } from 'jspdf';
+import { Bar, Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
+
+// Registrar componentes de ChartJS
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
+
+
 
 interface ClienteInfo {
   id: number;
@@ -30,15 +41,22 @@ interface MetricasAvanzadas {
   egresosRecurrentes?: Array<{descripcion: string, monto: number, frecuencia: number}>;
 }
 
-const EgresosModule: React.FC = () => {
+const EgresosModule: React.FC = (): React.ReactNode => {
   const [clienteInfo, setClienteInfo] = useState<ClienteInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [, setError] = useState(""); // Mantenemos setError para usarlo en los catch
   const [metricas, setMetricas] = useState<MetricasNRUS | null>(null);
   const [metricasAvanzadas, setMetricasAvanzadas] = useState<MetricasAvanzadas | null>(null);
   const [loadingMetricas, setLoadingMetricas] = useState(false);
-  // Estado para controlar la recarga de datos
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
+  
+  // Referencias para los gráficos
+  const pieChartRef = useRef<any>(null);
+  const barChartRef = useRef<any>(null);
+  
+  // Estado para controlar la visibilidad de los gráficos durante la generación del PDF
+  const [chartsVisible, setChartsVisible] = useState(false);
 
   // Función para recargar las métricas
   const refreshMetricas = () => {
@@ -105,13 +123,362 @@ const EgresosModule: React.FC = () => {
         headers: { "Authorization": `Bearer ${token}` },
       });
       
-      if (!response.ok) throw new Error("Error al obtener métricas avanzadas");
+      if (!response.ok) throw new Error("Error al obtener métricas");
       const data = await response.json();
       setMetricasAvanzadas(data);
     } catch (err) {
       console.error("Error al obtener métricas avanzadas:", err);
     } finally {
       setLoadingMetricas(false);
+    }
+  };
+  
+  // Las opciones de los gráficos ahora se definen directamente en los componentes
+
+  // Función para generar PDF
+  const generatePDF = async () => {
+    if (!clienteInfo || !metricasAvanzadas) return;
+    
+    setGeneratingPDF(true);
+    setChartsVisible(true); // Hacer visibles los gráficos para capturarlos
+    
+    try {
+      console.log('Generando PDF...');
+      // Esperar un momento para asegurar que los gráficos se hayan renderizado
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const doc = new jsPDF();
+      
+      // Configuración de página
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      let currentY = margin;
+      const lineHeight = 10;
+      
+      // Encabezado
+      doc.setFontSize(18);
+      doc.setTextColor(41, 128, 185);
+      doc.text('Reporte de Egresos', pageWidth / 2, currentY, { align: 'center' });
+      currentY += lineHeight * 1.5;
+      
+      // Información del cliente
+      doc.setFontSize(12);
+      doc.setTextColor(52, 73, 94);
+      doc.text(`Cliente: ${clienteInfo.nombres} ${clienteInfo.apellidos}`, margin, currentY);
+      currentY += lineHeight;
+      doc.text(`RUC/DNI: ${clienteInfo.rucDni}`, margin, currentY);
+      currentY += lineHeight;
+      doc.text(`Régimen: ${clienteInfo.regimen}`, margin, currentY);
+      currentY += lineHeight * 2;
+      
+      // Resumen de métricas
+      doc.setFontSize(14);
+      doc.setTextColor(41, 128, 185);
+      doc.text('Resumen de Egresos', margin, currentY);
+      currentY += lineHeight * 1.5;
+      
+      doc.setFontSize(11);
+      doc.setTextColor(52, 73, 94);
+      doc.text(`Total del Mes Actual: S/ ${parseFloat(metricasAvanzadas.totalMesActual).toFixed(2)}`, margin, currentY);
+      currentY += lineHeight;
+      doc.text(`Total del Mes Anterior: S/ ${parseFloat(metricasAvanzadas.totalMesAnterior).toFixed(2)}`, margin, currentY);
+      currentY += lineHeight;
+      
+      // Calcular variación porcentual
+      const mesActual = parseFloat(metricasAvanzadas.totalMesActual);
+      const mesAnterior = parseFloat(metricasAvanzadas.totalMesAnterior);
+      let variacion = 0;
+      if (mesAnterior > 0) {
+        variacion = ((mesActual - mesAnterior) / mesAnterior) * 100;
+      }
+      
+      doc.text(`Variación: ${variacion.toFixed(1)}%`, margin, currentY);
+      currentY += lineHeight;
+      doc.text(`Balance Mensual: S/ ${parseFloat(metricasAvanzadas.balanceMensual).toFixed(2)}`, margin, currentY);
+      currentY += lineHeight * 2;
+      
+      // Gráfico de distribución por tipo tributario
+      try {
+        if (pieChartRef.current) {
+          doc.setFontSize(14);
+          doc.setTextColor(41, 128, 185);
+          doc.text('Distribución por Tipo Tributario', margin, currentY);
+          currentY += lineHeight * 1.5;
+          
+          const pieCanvas = pieChartRef.current.canvas;
+          // Usar una calidad más baja para evitar problemas
+          const pieImgData = pieCanvas.toDataURL('image/jpeg', 0.95);
+          
+          // Centrar la imagen del gráfico
+          const imgWidth = 100;
+          const imgHeight = 100;
+          const imgX = (pageWidth - imgWidth) / 2;
+          
+          doc.addImage(pieImgData, 'JPEG', imgX, currentY, imgWidth, imgHeight);
+          currentY += imgHeight + lineHeight;
+        } else {
+          console.log('Gráfico de pastel no disponible');
+          currentY += lineHeight;
+        }
+      } catch (err) {
+        console.error('Error al agregar gráfico de pastel:', err);
+        doc.text('Error al generar gráfico de distribución por tipo tributario', margin, currentY);
+        currentY += lineHeight * 2;
+      }
+      
+      // Tabla de distribución por tipo tributario
+      const tipoTributarioLabels = Object.keys(metricasAvanzadas.egresosPorTipoTributario);
+      const tipoTributarioValues = tipoTributarioLabels.map(key => parseFloat(metricasAvanzadas.egresosPorTipoTributario[key]));
+      
+      // Tabla de distribución por tipo tributario (manual)
+      doc.setFontSize(9); // Reducir tamaño de fuente para tablas
+      doc.setFillColor(41, 128, 185);
+      doc.setTextColor(255, 255, 255);
+      doc.rect(margin, currentY, pageWidth - (margin * 2), lineHeight, 'F');
+      
+      // Encabezados de tabla
+      const col1Width = 60;
+      const col2Width = 50;
+      
+      doc.text('Tipo', margin + 5, currentY + 5);
+      doc.text('Monto', margin + col1Width + 5, currentY + 5);
+      doc.text('Porcentaje', margin + col1Width + col2Width + 5, currentY + 5);
+      currentY += lineHeight;
+      
+      // Filas de datos
+      doc.setTextColor(52, 73, 94);
+      let rowColor = false;
+      
+      tipoTributarioLabels.forEach((tipo, index) => {
+        if (rowColor) {
+          doc.setFillColor(240, 240, 240);
+          doc.rect(margin, currentY, pageWidth - (margin * 2), lineHeight, 'F');
+        }
+        
+        const monto = `S/ ${tipoTributarioValues[index].toFixed(2)}`;
+        const porcentaje = `${((tipoTributarioValues[index] / tipoTributarioValues.reduce((a, b) => a + b, 0)) * 100).toFixed(1)}%`;
+        
+        doc.text(tipo, margin + 5, currentY + 5);
+        doc.text(monto, margin + col1Width + 5, currentY + 5);
+        doc.text(porcentaje, margin + col1Width + col2Width + 5, currentY + 5);
+        
+        currentY += lineHeight;
+        rowColor = !rowColor;
+      });
+      
+      currentY += lineHeight;
+      
+      // Gráfico de distribución por tipo de contabilidad
+      try {
+        if (barChartRef.current) {
+          // Si estamos cerca del final de la página, añadir una nueva
+          if (currentY > pageHeight - 120) {
+            doc.addPage();
+            currentY = margin;
+          }
+          
+          doc.setFontSize(14);
+          doc.setTextColor(41, 128, 185);
+          doc.text('Distribución por Tipo de Contabilidad', margin, currentY);
+          currentY += lineHeight * 1.5;
+          
+          const barCanvas = barChartRef.current.canvas;
+          // Usar una calidad más baja para evitar problemas
+          const barImgData = barCanvas.toDataURL('image/jpeg', 0.95);
+          
+          // Centrar la imagen del gráfico
+          const imgWidth = 150;
+          const imgHeight = 100;
+          const imgX = (pageWidth - imgWidth) / 2;
+          
+          doc.addImage(barImgData, 'JPEG', imgX, currentY, imgWidth, imgHeight);
+          currentY += imgHeight + lineHeight;
+        } else {
+          console.log('Gráfico de barras no disponible');
+          currentY += lineHeight;
+        }
+      } catch (err) {
+        console.error('Error al agregar gráfico de barras:', err);
+        doc.text('Error al generar gráfico de distribución por tipo de contabilidad', margin, currentY);
+        currentY += lineHeight * 2;
+      }
+      
+      // Tabla de distribución por tipo de contabilidad
+      const tipoContabilidadLabels = Object.keys(metricasAvanzadas.egresosPorTipoContabilidad);
+      const tipoContabilidadValues = tipoContabilidadLabels.map(key => parseFloat(metricasAvanzadas.egresosPorTipoContabilidad[key]));
+      
+      // Si estamos cerca del final de la página, añadir una nueva
+      if (currentY > pageHeight - 60) {
+        doc.addPage();
+        currentY = margin;
+      }
+      
+      // Tabla de distribución por tipo de contabilidad (manual)
+      doc.setFontSize(9); // Reducir tamaño de fuente para tablas
+      doc.setFillColor(142, 68, 173);
+      doc.setTextColor(255, 255, 255);
+      doc.rect(margin, currentY, pageWidth - (margin * 2), lineHeight, 'F');
+      
+      // Encabezados de tabla
+      doc.text('Tipo', margin + 5, currentY + 5);
+      doc.text('Monto', margin + col1Width + 5, currentY + 5);
+      doc.text('Porcentaje', margin + col1Width + col2Width + 5, currentY + 5);
+      currentY += lineHeight;
+      
+      // Filas de datos
+      doc.setTextColor(52, 73, 94);
+      rowColor = false;
+      
+      tipoContabilidadLabels.forEach((tipo, index) => {
+        if (rowColor) {
+          doc.setFillColor(240, 240, 240);
+          doc.rect(margin, currentY, pageWidth - (margin * 2), lineHeight, 'F');
+        }
+        
+        const monto = `S/ ${tipoContabilidadValues[index].toFixed(2)}`;
+        const porcentaje = `${((tipoContabilidadValues[index] / tipoContabilidadValues.reduce((a, b) => a + b, 0)) * 100).toFixed(1)}%`;
+        
+        doc.text(tipo, margin + 5, currentY + 5);
+        doc.text(monto, margin + col1Width + 5, currentY + 5);
+        doc.text(porcentaje, margin + col1Width + col2Width + 5, currentY + 5);
+        
+        currentY += lineHeight;
+        rowColor = !rowColor;
+      });
+      
+      currentY += lineHeight * 1.5;
+      
+      // Tabla de últimos egresos
+      // Si estamos cerca del final de la página, añadir una nueva
+      if (currentY > pageHeight - 60) {
+        doc.addPage();
+        currentY = margin;
+      }
+      
+      doc.setFontSize(14);
+      doc.setTextColor(41, 128, 185);
+      doc.text('Últimos Egresos Registrados', margin, currentY);
+      currentY += lineHeight * 1.5;
+      
+      // Obtener los últimos egresos
+      const token = localStorage.getItem("token");
+      const response = await fetch("http://localhost:8099/api/v1/egresos/mis-egresos?size=10", {
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        const egresosData = await response.json();
+        console.log('Datos de egresos recibidos:', egresosData);
+        
+        // Verificar si necesitamos una nueva página
+        if (currentY > pageHeight - 60) {
+          doc.addPage();
+          currentY = margin;
+        }
+        
+        // Tabla de últimos egresos (manual)
+        doc.setFontSize(8); // Tamaño más pequeño para esta tabla que tiene más columnas
+        doc.setFillColor(52, 152, 219);
+        doc.setTextColor(255, 255, 255);
+        doc.rect(margin, currentY, pageWidth - (margin * 2), lineHeight, 'F');
+        
+        // Encabezados de tabla
+        const colWidth = (pageWidth - (margin * 2)) / 5;
+        
+        doc.text('Fecha', margin + 5, currentY + 5);
+        doc.text('Descripción', margin + colWidth + 5, currentY + 5);
+        doc.text('Comprobante', margin + (colWidth * 2) + 5, currentY + 5);
+        doc.text('Tipo', margin + (colWidth * 3) + 5, currentY + 5);
+        doc.text('Monto', margin + (colWidth * 4) + 5, currentY + 5);
+        currentY += lineHeight;
+        
+        // Filas de datos
+        doc.setTextColor(52, 73, 94);
+        rowColor = false;
+        
+        // Verificar si egresosData tiene la propiedad content (paginación) o es un array directo
+        const egresos = Array.isArray(egresosData) ? egresosData : (egresosData.content || []);
+        
+        if (egresos && egresos.length > 0) {
+          egresos.forEach((egreso: any) => {
+            // Verificar si necesitamos una nueva página
+            if (currentY > pageHeight - lineHeight) {
+              doc.addPage();
+              currentY = margin;
+              
+              // Repetir encabezados en la nueva página
+              doc.setFontSize(8); // Mantener el mismo tamaño pequeño
+              doc.setFillColor(52, 152, 219);
+              doc.setTextColor(255, 255, 255);
+              doc.rect(margin, currentY, pageWidth - (margin * 2), lineHeight, 'F');
+              
+              doc.text('Fecha', margin + 5, currentY + 5);
+              doc.text('Descripción', margin + colWidth + 5, currentY + 5);
+              doc.text('Comprobante', margin + (colWidth * 2) + 5, currentY + 5);
+              doc.text('Tipo', margin + (colWidth * 3) + 5, currentY + 5);
+              doc.text('Monto', margin + (colWidth * 4) + 5, currentY + 5);
+              currentY += lineHeight;
+              rowColor = false;
+            }
+            
+            if (rowColor) {
+              doc.setFillColor(240, 240, 240);
+              doc.rect(margin, currentY, pageWidth - (margin * 2), lineHeight, 'F');
+            }
+            
+            // Formatear fecha
+            const fecha = new Date(egreso.fecha).toLocaleDateString();
+            const descripcion = egreso.descripcion || "";
+            const comprobante = egreso.nroComprobante || "No especificado";
+            const tipo = egreso.tipoTributario || "";
+            const monto = `S/ ${parseFloat(egreso.monto).toFixed(2)}`;
+            
+            // Truncar textos largos - permitir más caracteres con fuente más pequeña
+            const maxChars = 20;
+            const truncatedDesc = descripcion.length > maxChars ? descripcion.substring(0, maxChars) + '...' : descripcion;
+            const truncatedComp = comprobante.length > maxChars ? comprobante.substring(0, maxChars) + '...' : comprobante;
+            
+            doc.text(fecha, margin + 5, currentY + 5);
+            doc.text(truncatedDesc, margin + colWidth + 5, currentY + 5);
+            doc.text(truncatedComp, margin + (colWidth * 2) + 5, currentY + 5);
+            doc.text(tipo, margin + (colWidth * 3) + 5, currentY + 5);
+            doc.text(monto, margin + (colWidth * 4) + 5, currentY + 5);
+            
+            currentY += lineHeight;
+            rowColor = !rowColor;
+          });
+          
+          currentY += lineHeight * 2;
+        } else {
+          // No hay egresos para mostrar
+          doc.setTextColor(52, 73, 94);
+          doc.text('No hay egresos registrados', margin + 5, currentY + 5);
+          currentY += lineHeight * 2;
+        }
+      }
+      
+      // Pie de página
+      // Si estamos cerca del final de la página, añadir una nueva
+      if (currentY > pageHeight - 30) {
+        doc.addPage();
+        currentY = margin;
+      }
+      
+      doc.setFontSize(10);
+      doc.setTextColor(127, 140, 141);
+      doc.text(`Reporte generado el ${new Date().toLocaleString()}`, pageWidth / 2, pageHeight - 20, { align: 'center' });
+      
+      // Guardar PDF
+      console.log('Guardando PDF...');
+      doc.save(`Reporte_Egresos_${clienteInfo.rucDni}.pdf`);
+      console.log('PDF guardado exitosamente');
+    } catch (error) {
+      console.error('Error al generar PDF:', error);
+      alert('Hubo un error al generar el PDF. Por favor, intente nuevamente.');
+    } finally {
+      setGeneratingPDF(false);
+      setChartsVisible(false); // Ocultar los gráficos después de capturarlos
     }
   };
   
@@ -396,6 +763,134 @@ const EgresosModule: React.FC = () => {
             </div>
           )}
         </>
+      )}
+      
+      {/* Gráficos para PDF - visibles solo durante la generación */}
+      {chartsVisible && (
+        <div 
+          style={{ 
+            position: 'fixed', 
+            left: '-9999px',
+            width: '800px',
+            height: '800px',
+            backgroundColor: '#FFFFFF',
+            padding: '20px',
+          }}
+        >
+          {/* Contenedor para gráfico de pastel con fondo blanco */}
+          <div 
+            style={{ 
+              width: '400px', 
+              height: '400px', 
+              backgroundColor: '#FFFFFF',
+              marginBottom: '20px',
+              padding: '10px',
+              borderRadius: '8px',
+            }}
+          >
+            <Pie
+              ref={pieChartRef}
+              data={{
+                labels: Object.keys(metricasAvanzadas?.egresosPorTipoTributario || {}),
+                datasets: [
+                  {
+                    data: Object.values(metricasAvanzadas?.egresosPorTipoTributario || {}).map(val => parseFloat(val.toString())),
+                    backgroundColor: [
+                      'rgb(52, 152, 219)',  // Azul
+                      'rgb(46, 204, 113)',  // Verde
+                      'rgb(231, 76, 60)',   // Rojo
+                      'rgb(241, 196, 15)',  // Amarillo
+                      'rgb(155, 89, 182)',  // Morado
+                    ],
+                    borderColor: 'white',
+                    borderWidth: 3,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    position: 'right',
+                    labels: {
+                      color: '#000000',
+                      font: { weight: 'bold', size: 14 },
+                      padding: 20,
+                    },
+                  },
+                  tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 12 },
+                    padding: 12,
+                  },
+                },
+              }}
+            />
+          </div>
+          
+          {/* Contenedor para gráfico de barras con fondo blanco */}
+          <div 
+            style={{ 
+              width: '600px', 
+              height: '400px', 
+              backgroundColor: '#FFFFFF',
+              padding: '10px',
+              borderRadius: '8px',
+            }}
+          >
+            <Bar
+              ref={barChartRef}
+              data={{
+                labels: Object.keys(metricasAvanzadas?.egresosPorTipoContabilidad || {}),
+                datasets: [
+                  {
+                    label: 'Monto',
+                    data: Object.values(metricasAvanzadas?.egresosPorTipoContabilidad || {}).map(val => parseFloat(val.toString())),
+                    backgroundColor: 'rgb(155, 89, 182)',  // Morado
+                    borderColor: 'rgb(120, 70, 140)',
+                    borderWidth: 2,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    grid: { color: '#E0E0E0' },
+                    ticks: { color: '#000000', font: { weight: 'bold' } },
+                  },
+                  x: {
+                    grid: { color: '#E0E0E0' },
+                    ticks: { color: '#000000', font: { weight: 'bold' } },
+                  },
+                },
+                plugins: {
+                  legend: {
+                    labels: { color: '#000000', font: { weight: 'bold', size: 12 } },
+                  },
+                },
+              }}
+            />
+          </div>
+        </div>
+      )}
+      
+      {/* Botón para generar PDF (solo para clientes no NRUS) */}
+      {!isNRUS && clienteInfo && metricasAvanzadas && (
+        <div className="flex justify-end mb-4">
+          <Button 
+            onClick={generatePDF} 
+            disabled={generatingPDF}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            {generatingPDF ? 'Generando PDF...' : 'Descargar Reporte PDF'}
+          </Button>
+        </div>
       )}
       
       <EgresosTable 
