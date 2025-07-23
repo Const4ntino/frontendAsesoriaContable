@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Chart } from "./Chart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
@@ -27,6 +27,8 @@ const DistribucionTributaria: React.FC<DistribucionTributariaProps> = ({
   distribucionIngresos, 
   distribucionEgresos 
 }) => {
+  // Estado para rastrear el tab activo de egresos
+  const [activeEgresosTab, setActiveEgresosTab] = useState<string>("tributario");
   // Colores para los gráficos
   const coloresTributarios = {
     'GRAVADA': 'rgba(59, 130, 246, 0.6)', // Azul
@@ -58,13 +60,16 @@ const DistribucionTributaria: React.FC<DistribucionTributariaProps> = ({
     ]
   };
 
+  // Filtrar egresos por tipo tributario (solo los que tienen tipoTributario no vacío)
+  const egresosTributario = distribucionEgresos.filter(item => item.tipoTributario !== "");
+
   // Preparar datos para el gráfico de egresos por tipo tributario
   const egresosTributarioData = {
-    labels: distribucionEgresos.map(item => item.tipoTributario),
+    labels: egresosTributario.map(item => item.tipoTributario),
     datasets: [
       {
-        data: distribucionEgresos.map(item => item.monto),
-        backgroundColor: distribucionEgresos.map(item => 
+        data: egresosTributario.map(item => item.monto),
+        backgroundColor: egresosTributario.map(item => 
           coloresTributarios[item.tipoTributario as keyof typeof coloresTributarios] || coloresTributarios.OTROS
         ),
         borderColor: 'white',
@@ -73,14 +78,16 @@ const DistribucionTributaria: React.FC<DistribucionTributariaProps> = ({
     ]
   };
 
-  // Agrupar egresos por tipo de contabilidad
-  const egresosContabilidad = distribucionEgresos.reduce<Record<string, number>>((acc, item) => {
-    if (!acc[item.tipoContabilidad]) {
-      acc[item.tipoContabilidad] = 0;
-    }
-    acc[item.tipoContabilidad] += item.monto;
-    return acc;
-  }, {});
+  // Filtrar egresos por tipo de contabilidad (solo los que tienen tipoContabilidad no vacío)
+  const egresosContabilidad = distribucionEgresos
+    .filter(item => item.tipoContabilidad !== "")
+    .reduce<Record<string, number>>((acc, item) => {
+      if (!acc[item.tipoContabilidad]) {
+        acc[item.tipoContabilidad] = 0;
+      }
+      acc[item.tipoContabilidad] += item.monto;
+      return acc;
+    }, {});
 
   // Preparar datos para el gráfico de egresos por tipo de contabilidad
   const egresosContabilidadData = {
@@ -150,7 +157,7 @@ const DistribucionTributaria: React.FC<DistribucionTributariaProps> = ({
             <CardTitle>Distribución de Egresos</CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="tributario">
+            <Tabs defaultValue="tributario" onValueChange={setActiveEgresosTab}>
               <TabsList className="grid grid-cols-2 mb-4">
                 <TabsTrigger value="tributario">Por Tipo Tributario</TabsTrigger>
                 <TabsTrigger value="contabilidad">Por Contabilidad</TabsTrigger>
@@ -210,7 +217,9 @@ const DistribucionTributaria: React.FC<DistribucionTributariaProps> = ({
             </div>
             
             <div>
-              <h3 className="font-semibold mb-2">Egresos por Tipo Tributario</h3>
+              <h3 className="font-semibold mb-2">
+                {activeEgresosTab === "tributario" ? "Egresos por Tipo Tributario" : "Egresos por Tipo Contabilidad"}
+              </h3>
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b">
@@ -220,18 +229,35 @@ const DistribucionTributaria: React.FC<DistribucionTributariaProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {distribucionEgresos.map((item, index) => {
-                    const total = distribucionEgresos.reduce((sum, i) => sum + i.monto, 0);
-                    const porcentaje = total > 0 ? Math.round((item.monto / total) * 100) : 0;
-                    
-                    return (
-                      <tr key={index} className="border-b">
-                        <td className="py-2">{item.tipoTributario}</td>
-                        <td className="text-right py-2">{formatCurrency(item.monto)}</td>
-                        <td className="text-right py-2">{porcentaje}%</td>
-                      </tr>
-                    );
-                  })}
+                  {activeEgresosTab === "tributario" ? (
+                    // Mostrar datos por tipo tributario
+                    egresosTributario.map((item, index) => {
+                      const total = egresosTributario.reduce((sum, i) => sum + i.monto, 0);
+                      const porcentaje = total > 0 ? Math.round((item.monto / total) * 100) : 0;
+                      
+                      return (
+                        <tr key={index} className="border-b">
+                          <td className="py-2">{item.tipoTributario}</td>
+                          <td className="text-right py-2">{formatCurrency(item.monto)}</td>
+                          <td className="text-right py-2">{porcentaje}%</td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    // Mostrar datos por tipo contabilidad
+                    Object.entries(egresosContabilidad).map(([tipo, monto], index) => {
+                      const total = Object.values(egresosContabilidad).reduce((sum, val) => sum + val, 0);
+                      const porcentaje = total > 0 ? Math.round((monto / total) * 100) : 0;
+                      
+                      return (
+                        <tr key={index} className="border-b">
+                          <td className="py-2">{tipo}</td>
+                          <td className="text-right py-2">{formatCurrency(monto)}</td>
+                          <td className="text-right py-2">{porcentaje}%</td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>

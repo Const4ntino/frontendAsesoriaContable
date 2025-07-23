@@ -291,15 +291,15 @@ const ReportesModule: React.FC = () => {
                     monto
                   }))}
                   distribucionEgresos={[
-                    // Datos por tipo tributario con tipoContabilidad genérico
+                    // Solo datos por tipo tributario para el tab de tipo tributario
                     ...Object.entries(reporte.egresos.egresosPorTipoTributario).map(([tipoTributario, monto]) => ({
                       tipoTributario,
                       monto,
-                      tipoContabilidad: "TRIBUTARIO" // Marcamos estos como tipo TRIBUTARIO
+                      tipoContabilidad: "" // Dejamos vacío para que no se mezcle con los datos de contabilidad
                     })),
-                    // Datos por tipo contabilidad
+                    // Solo datos por tipo contabilidad para el tab de contabilidad
                     ...Object.entries(reporte.egresos.egresosPorTipoContabilidad).map(([tipoContabilidad, monto]) => ({
-                      tipoTributario: tipoContabilidad, // Usamos el tipo de contabilidad como tipo tributario para estos registros
+                      tipoTributario: "", // Dejamos vacío para que no se mezcle con los datos tributarios
                       monto,
                       tipoContabilidad // GASTO, COSTO, etc.
                     }))
