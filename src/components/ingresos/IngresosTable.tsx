@@ -19,7 +19,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -36,7 +35,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis
 } from "@/components/ui/pagination";
-import { Search, Plus, RefreshCw, X, FileText, Edit, Trash2, Eye } from "lucide-react";
+import { Plus, RefreshCw, X, FileText, Edit, Trash2, Eye, ArrowUpDown } from "lucide-react";
 import { debounce } from "lodash";
 import { format } from "date-fns";
 
@@ -84,14 +83,42 @@ const IngresosTable: React.FC<IngresosTableProps> = ({ clienteRegimen, onDataCha
   const [comprobanteUrl, setComprobanteUrl] = useState("");
   
   // Estados para filtros y ordenamiento
-  const [searchTerm, setSearchTerm] = useState("");
   const [tipoTributarioFilter, setTipoTributarioFilter] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("fecha");
   const [sortOrder, setSortOrder] = useState<string>("desc");
   
+  // Estados para filtros de mes y año
+  const [mesFilter, setMesFilter] = useState<string>("all_months");
+  const [anioFilter, setAnioFilter] = useState<string>("all_years");
+  
+  // Opciones para los filtros de mes
+  const meses = [
+    { value: "1", label: "Enero" },
+    { value: "2", label: "Febrero" },
+    { value: "3", label: "Marzo" },
+    { value: "4", label: "Abril" },
+    { value: "5", label: "Mayo" },
+    { value: "6", label: "Junio" },
+    { value: "7", label: "Julio" },
+    { value: "8", label: "Agosto" },
+    { value: "9", label: "Septiembre" },
+    { value: "10", label: "Octubre" },
+    { value: "11", label: "Noviembre" },
+    { value: "12", label: "Diciembre" }
+  ];
+  
+  // Opciones para los filtros de año (últimos 5 años)
+  const anios = Array.from({ length: 5 }, (_, i) => {
+    const year = new Date().getFullYear() - i;
+    return { value: year.toString(), label: year.toString() };
+  });
+  
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+
+  // Almacenamos todos los ingresos sin filtrar
+  const [allIngresos, setAllIngresos] = useState<IngresoResponse[]>([]);
 
   const fetchIngresos = async () => {
     setLoading(true);
@@ -99,12 +126,14 @@ const IngresosTable: React.FC<IngresosTableProps> = ({ clienteRegimen, onDataCha
     try {
       const token = localStorage.getItem("token");
       
-      // Construir URL con parámetros de filtro
+      // Construir URL con parámetros de filtro (solo mes y año que se procesan en el backend)
       const params = new URLSearchParams();
-      if (searchTerm) params.append("searchTerm", searchTerm);
-      if (tipoTributarioFilter && tipoTributarioFilter !== "todos") params.append("tipoTributario", tipoTributarioFilter);
       if (sortBy) params.append("sortBy", sortBy);
       if (sortOrder) params.append("sortOrder", sortOrder);
+      
+      // Añadir filtros de mes y año
+      if (mesFilter && mesFilter !== "all_months") params.append("mes", mesFilter);
+      if (anioFilter && anioFilter !== "all_years") params.append("anio", anioFilter);
       
       const response = await fetch(`http://localhost:8099/api/v1/ingresos/mis-ingresos?${params}`, {
         headers: { "Authorization": `Bearer ${token}` },
@@ -112,13 +141,30 @@ const IngresosTable: React.FC<IngresosTableProps> = ({ clienteRegimen, onDataCha
       
       if (!response.ok) throw new Error("Error al obtener ingresos");
       const data = await response.json();
-      setIngresos(data);
+      
+      // Guardamos todos los ingresos sin filtrar
+      setAllIngresos(data);
+      
+      // Aplicamos filtros en el frontend
+      applyFrontendFilters(data);
     } catch (err) {
       setError("No se pudo cargar la lista de ingresos");
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+  
+  // Función para aplicar filtros en el frontend
+  const applyFrontendFilters = (data: IngresoResponse[]) => {
+    let filteredData = [...data];
+    
+    // Filtrar por tipo tributario si está seleccionado
+    if (tipoTributarioFilter && tipoTributarioFilter !== "todos") {
+      filteredData = filteredData.filter(ingreso => ingreso.tipoTributario === tipoTributarioFilter);
+    }
+    
+    setIngresos(filteredData);
   };
 
   // Función para buscar con debounce
@@ -127,13 +173,20 @@ const IngresosTable: React.FC<IngresosTableProps> = ({ clienteRegimen, onDataCha
       fetchIngresos();
       setCurrentPage(1); // Resetear a la primera página al buscar
     }, 500),
-    [searchTerm, tipoTributarioFilter, sortBy, sortOrder]
+    [mesFilter, anioFilter, sortBy, sortOrder]
   );
+  
+  // Aplicar filtros de frontend cuando cambian los valores de los filtros
+  useEffect(() => {
+    if (allIngresos.length > 0) {
+      applyFrontendFilters(allIngresos);
+    }
+  }, [tipoTributarioFilter]);
 
   useEffect(() => {
     debouncedSearch();
     return () => debouncedSearch.cancel();
-  }, [searchTerm, tipoTributarioFilter, sortBy, sortOrder, debouncedSearch]);
+  }, [tipoTributarioFilter, mesFilter, anioFilter, sortBy, sortOrder, debouncedSearch]);
 
   useEffect(() => {
     // Cargar ingresos al inicio
@@ -210,14 +263,26 @@ const IngresosTable: React.FC<IngresosTableProps> = ({ clienteRegimen, onDataCha
   };
   
   const handleClearFilters = () => {
-    setSearchTerm("");
-    if (!isNRUS) {
-      setTipoTributarioFilter("todos");
-    }
+    setTipoTributarioFilter("todos");
+    setMesFilter("all_months");
+    setAnioFilter("all_years");
     setSortBy("fecha");
     setSortOrder("desc");
     setCurrentPage(1);
+    
+    // Al limpiar los filtros, necesitamos volver a cargar los datos del backend
+    // y luego mostrar todos los ingresos sin filtrar
     fetchIngresos();
+    
+    // Si ya tenemos datos cargados, mostramos todos sin filtros
+    if (allIngresos.length > 0) {
+      setIngresos(allIngresos);
+    }
+  };
+  
+  // Función para cambiar el orden de la tabla
+  const toggleSortOrder = () => {
+    setSortOrder(prev => prev === "asc" ? "desc" : "asc");
   };
 
   // Calcular ingresos paginados
@@ -275,16 +340,40 @@ const IngresosTable: React.FC<IngresosTableProps> = ({ clienteRegimen, onDataCha
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row gap-4 mb-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-              <Input
-                placeholder="Buscar por descripción o número de comprobante..."
-                className="pl-8"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              {/* Filtro de Mes */}
+              <Select
+                value={mesFilter}
+                onValueChange={setMesFilter}
+              >
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Mes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all_months">Todos los meses</SelectItem>
+                  {meses.map(mes => (
+                    <SelectItem key={mes.value} value={mes.value}>{mes.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {/* Filtro de Año */}
+              <Select
+                value={anioFilter}
+                onValueChange={setAnioFilter}
+              >
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Año" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all_years">Todos los años</SelectItem>
+                  {anios.map(anio => (
+                    <SelectItem key={anio.value} value={anio.value}>{anio.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {/* Filtro de Tipo Tributario */}
               {!isNRUS && (
                 <Select
                   value={tipoTributarioFilter}
@@ -301,6 +390,13 @@ const IngresosTable: React.FC<IngresosTableProps> = ({ clienteRegimen, onDataCha
                   </SelectContent>
                 </Select>
               )}
+              
+              {/* Botón para aplicar filtros de periodo */}
+              <Button variant="outline" onClick={fetchIngresos}>
+                Aplicar Filtros de Periodo
+              </Button>
+              
+              {/* Botón para limpiar filtros */}
               <Button
                 variant="outline"
                 size="icon"
@@ -331,7 +427,13 @@ const IngresosTable: React.FC<IngresosTableProps> = ({ clienteRegimen, onDataCha
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[100px]">Fecha</TableHead>
+                      <TableHead className="w-[100px]">
+                        <div className="flex items-center cursor-pointer" onClick={toggleSortOrder}>
+                          Fecha
+                          <ArrowUpDown className="ml-1 h-4 w-4" />
+                          <span className="sr-only">Ordenar por fecha {sortOrder === "asc" ? "ascendente" : "descendente"}</span>
+                        </div>
+                      </TableHead>
                       <TableHead>Descripción</TableHead>
                       <TableHead>Comprobante</TableHead>
                       {!isNRUS && <TableHead className="text-center">Tipo</TableHead>}

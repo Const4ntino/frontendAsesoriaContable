@@ -19,7 +19,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -35,8 +34,7 @@ import {
   PaginationNext, 
   PaginationPrevious
 } from "@/components/ui/pagination";
-import { Search, Plus, RefreshCw, X, FileText, Edit, Trash2, Eye } from "lucide-react";
-import { debounce } from "lodash";
+import { Plus, RefreshCw, X, FileText, Edit, Trash2, Eye } from "lucide-react";
 import { format } from "date-fns";
 
 interface Cliente {
@@ -76,11 +74,36 @@ const EgresosTable: React.FC<EgresosTableProps> = ({ clienteRegimen, onDataChang
   const [egresoEditar, setEgresoEditar] = useState<EgresoResponse | null>(null);
   
   // Estados para filtros
-  const [searchTerm, setSearchTerm] = useState("");
   const [tipoTributarioFilter, setTipoTributarioFilter] = useState<string>("todos");
   const [tipoContabilidadFilter, setTipoContabilidadFilter] = useState<string>("todos");
   const [sortBy, setSortBy] = useState<string>("fecha");
   const [sortOrder, setSortOrder] = useState<string>("desc");
+  
+  // Estados para filtros de mes y año
+  const [mesFilter, setMesFilter] = useState<string>("all_months");
+  const [anioFilter, setAnioFilter] = useState<string>("all_years");
+  
+  // Opciones para los filtros de mes
+  const meses = [
+    { value: "1", label: "Enero" },
+    { value: "2", label: "Febrero" },
+    { value: "3", label: "Marzo" },
+    { value: "4", label: "Abril" },
+    { value: "5", label: "Mayo" },
+    { value: "6", label: "Junio" },
+    { value: "7", label: "Julio" },
+    { value: "8", label: "Agosto" },
+    { value: "9", label: "Septiembre" },
+    { value: "10", label: "Octubre" },
+    { value: "11", label: "Noviembre" },
+    { value: "12", label: "Diciembre" }
+  ];
+  
+  // Opciones para los filtros de año (últimos 5 años)
+  const anios = Array.from({ length: 5 }, (_, i) => {
+    const year = new Date().getFullYear() - i;
+    return { value: year.toString(), label: year.toString() };
+  });
   
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -94,19 +117,23 @@ const EgresosTable: React.FC<EgresosTableProps> = ({ clienteRegimen, onDataChang
   const [comprobanteModalOpen, setComprobanteModalOpen] = useState(false);
   const [comprobanteUrl, setComprobanteUrl] = useState("");
 
+  // Almacenamos todos los egresos sin filtrar
+  const [allEgresos, setAllEgresos] = useState<EgresoResponse[]>([]);
+
   const fetchEgresos = async () => {
     setLoading(true);
     setError("");
     try {
       const token = localStorage.getItem("token");
       
-      // Construir URL con parámetros de filtro
+      // Construir URL con parámetros de filtro (solo mes y año que se procesan en el backend)
       const params = new URLSearchParams();
-      if (searchTerm) params.append("searchTerm", searchTerm);
-      if (tipoTributarioFilter && tipoTributarioFilter !== "todos") params.append("tipoTributario", tipoTributarioFilter);
-      if (tipoContabilidadFilter && tipoContabilidadFilter !== "todos") params.append("tipoContabilidad", tipoContabilidadFilter);
       if (sortBy) params.append("sortBy", sortBy);
       if (sortOrder) params.append("sortOrder", sortOrder);
+      
+      // Añadir parámetros de mes y año si están seleccionados
+      if (mesFilter && mesFilter !== "all_months") params.append("mes", mesFilter);
+      if (anioFilter && anioFilter !== "all_years") params.append("anio", anioFilter);
       
       const response = await fetch(`http://localhost:8099/api/v1/egresos/mis-egresos?${params}`, {
         headers: { "Authorization": `Bearer ${token}` },
@@ -114,7 +141,12 @@ const EgresosTable: React.FC<EgresosTableProps> = ({ clienteRegimen, onDataChang
       
       if (!response.ok) throw new Error("Error al obtener egresos");
       const data = await response.json();
-      setEgresos(data);
+      
+      // Guardamos todos los egresos sin filtrar
+      setAllEgresos(data);
+      
+      // Aplicamos filtros en el frontend
+      applyFrontendFilters(data);
     } catch (err) {
       setError("No se pudo cargar la lista de egresos");
       console.error(err);
@@ -122,20 +154,30 @@ const EgresosTable: React.FC<EgresosTableProps> = ({ clienteRegimen, onDataChang
       setLoading(false);
     }
   };
+  
+  // Función para aplicar filtros en el frontend
+  const applyFrontendFilters = (data: EgresoResponse[]) => {
+    let filteredData = [...data];
+    
+    // Filtrar por tipo tributario si está seleccionado
+    if (tipoTributarioFilter && tipoTributarioFilter !== "todos") {
+      filteredData = filteredData.filter(egreso => egreso.tipoTributario === tipoTributarioFilter);
+    }
+    
+    // Filtrar por tipo contabilidad si está seleccionado
+    if (tipoContabilidadFilter && tipoContabilidadFilter !== "todos") {
+      filteredData = filteredData.filter(egreso => egreso.tipoContabilidad === tipoContabilidadFilter);
+    }
+    
+    setEgresos(filteredData);
+  };
 
-  // Función para buscar con debounce
-  const debouncedSearch = React.useCallback(
-    debounce(() => {
-      fetchEgresos();
-      setCurrentPage(1); // Resetear a la primera página al buscar
-    }, 500),
-    [searchTerm, tipoTributarioFilter, tipoContabilidadFilter, sortBy, sortOrder]
-  );
-
+  // Aplicar filtros de frontend cuando cambian los valores de los filtros
   useEffect(() => {
-    debouncedSearch();
-    return () => debouncedSearch.cancel();
-  }, [searchTerm, tipoTributarioFilter, tipoContabilidadFilter, sortBy, sortOrder, debouncedSearch]);
+    if (allEgresos.length > 0) {
+      applyFrontendFilters(allEgresos);
+    }
+  }, [tipoTributarioFilter, tipoContabilidadFilter]);
 
   useEffect(() => {
     // Cargar egresos al inicio
@@ -224,15 +266,24 @@ const EgresosTable: React.FC<EgresosTableProps> = ({ clienteRegimen, onDataChang
   };
   
   const handleClearFilters = () => {
-    setSearchTerm("");
     if (!isNRUS) {
       setTipoTributarioFilter("todos");
     }
     setTipoContabilidadFilter("todos");
+    setMesFilter("all_months");
+    setAnioFilter("all_years");
     setSortBy("fecha");
     setSortOrder("desc");
     setCurrentPage(1);
+    
+    // Al limpiar los filtros, necesitamos volver a cargar los datos del backend
+    // y luego mostrar todos los egresos sin filtrar
     fetchEgresos();
+    
+    // Si ya tenemos datos cargados, mostramos todos sin filtros
+    if (allEgresos.length > 0) {
+      setEgresos(allEgresos);
+    }
   };
 
   // Calcular egresos paginados
@@ -285,53 +336,92 @@ const EgresosTable: React.FC<EgresosTableProps> = ({ clienteRegimen, onDataChang
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
-          <CardTitle>Lista de Egresos</CardTitle>
+        <CardHeader className="flex flex-col space-y-1.5">
+          <CardTitle>Egresos</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-                <Input
-                  placeholder="Buscar por descripción o comprobante..."
-                  className="pl-8 w-[300px]"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleRefresh}
-                title="Refrescar"
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            
+            {/* Filtro de Mes */}
+            <div className="min-w-[150px]">
+              <Select
+                value={mesFilter}
+                onValueChange={(value) => {
+                  setMesFilter(value);
+                  setCurrentPage(1);
+                }}
               >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
+                <SelectTrigger>
+                  <SelectValue placeholder="Mes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all_months">Todos los meses</SelectItem>
+                  {meses.map((mes) => (
+                    <SelectItem key={mes.value} value={mes.value}>
+                      {mes.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex gap-2">
-              {!isNRUS && (
+            
+            {/* Filtro de Año */}
+            <div className="min-w-[120px]">
+              <Select
+                value={anioFilter}
+                onValueChange={(value) => {
+                  setAnioFilter(value);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Año" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all_years">Todos los años</SelectItem>
+                  {anios.map((anio) => (
+                    <SelectItem key={anio.value} value={anio.value}>
+                      {anio.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Filtro de Tipo Tributario (solo si no es NRUS) */}
+            {!isNRUS && (
+              <div className="min-w-[150px]">
                 <Select
                   value={tipoTributarioFilter}
-                  onValueChange={setTipoTributarioFilter}
+                  onValueChange={(value) => {
+                    setTipoTributarioFilter(value);
+                    setCurrentPage(1);
+                  }}
                 >
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger>
                     <SelectValue placeholder="Tipo Tributario" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="todos">Todos los tipos</SelectItem>
                     <SelectItem value="GRAVADA">Gravada</SelectItem>
                     <SelectItem value="EXONERADA">Exonerada</SelectItem>
                     <SelectItem value="INAFECTA">Inafecta</SelectItem>
                   </SelectContent>
                 </Select>
-              )}
+              </div>
+            )}
+            
+            {/* Filtro de Tipo Contabilidad */}
+            <div className="min-w-[150px]">
               <Select
                 value={tipoContabilidadFilter}
-                onValueChange={setTipoContabilidadFilter}
+                onValueChange={(value) => {
+                  setTipoContabilidadFilter(value);
+                  setCurrentPage(1);
+                }}
               >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Tipo Contabilidad" />
+                <SelectTrigger>
+                  <SelectValue placeholder="Contabilidad" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
@@ -339,15 +429,21 @@ const EgresosTable: React.FC<EgresosTableProps> = ({ clienteRegimen, onDataChang
                   <SelectItem value="COSTO">Costo</SelectItem>
                 </SelectContent>
               </Select>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleClearFilters}
-                title="Limpiar filtros"
-              >
-                <X className="h-4 w-4" />
-              </Button>
             </div>
+            
+            {/* Botones de acción */}
+            <Button variant="outline" onClick={fetchEgresos}>
+              Aplicar Filtros de Periodo
+            </Button>
+            
+            <Button variant="ghost" size="icon" onClick={handleClearFilters} title="Limpiar filtros">
+              <X className="h-4 w-4" />
+            </Button>
+            
+            <Button variant="ghost" size="icon" onClick={handleRefresh} title="Refrescar">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            
             <Button onClick={handleAgregar}>
               <Plus className="mr-2 h-4 w-4" /> Nuevo Egreso
             </Button>

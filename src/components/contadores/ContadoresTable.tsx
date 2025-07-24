@@ -260,7 +260,7 @@ const ContadoresTable: React.FC = () => {
                           if (window.confirm(`¿Seguro que deseas eliminar al contador ${c.nombres} ${c.apellidos}?`)) {
                             try {
                               const token = localStorage.getItem("token");
-                              const res = await fetch(`http://localhost:8099/api/contadores/${c.id}`, {
+                              const res = await fetch(`http://localhost:8099/api/v1/contadores/${c.id}`, {
                                 method: "DELETE",
                                 headers: { Authorization: `Bearer ${token}` },
                               });
